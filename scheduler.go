@@ -1,7 +1,7 @@
 package main
 
 import (
-	mesos "github.com/pwzogrilla/mfl/mesosproto"
+	mesos "github.com/mesos/go-proto/mesos/v1"
 )
 
 // Interface for connecting a scheduler to Mesos. This

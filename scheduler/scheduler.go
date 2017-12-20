@@ -30,11 +30,20 @@ func NewMesosSchedulerDriver(config DriverConfig) (driver *MesosSchedulerDriver,
 		stopped:   make(chan struct{}),
 	}
 
-	if err := driver.init(); err != nil {
-		return nil, err
-	}
+	driver.init()
 
 	return driver, nil
+}
+
+func (driver *MesosSchedulerDriver) init() {
+	driver.handlers[mesos.Event_SUBSCRIBED] = driver.frameworkRegistered
+	driver.handlers[mesos.Event_OFFERS] = driver.resourcesOffered
+	driver.handlers[mesos.Event_RESCIND] = driver.resourceOfferRescinded
+	driver.handlers[mesos.Event_UPDATE] = driver.statusUpdated
+	driver.handlers[mesos.Event_HEARTBEAT] = driver.heartBeat
+	driver.handlers[mesos.Event_ERROR] = driver.frameworkErrorRcvd
+	driver.handlers[mesos.Event_FAILURE] = driver.frameworkFailure
+	driver.handlers[mesos.Event_MESSAGE] = driver.frameworkMessageRcvd
 }
 
 // Status returns the current driver status
@@ -146,11 +155,16 @@ func (driver *MesosSchedulerDriver) statusUpdated(event *mesos.Event) {
 		return
 	}
 
-	log.Println("Received status update")
+	log.Println("Received status update from mesos")
 
 	status := event.GetStatus()
 
 	driver.scheduler.StatusUpdate(driver, status)
+}
+
+func (driver *MesosSchedulerDriver) heartbeatReceived(event *mesos.Event) {
+
+	driver.scheduler.HeartBeat(driver, event)
 }
 
 // Starts the scheduler driver.
@@ -187,7 +201,7 @@ func (driver *MesosSchedulerDriver) start() (mesos.Status, error) {
 		msg.FrameworkId = driver.frameworkInfo.GetId()
 	}
 
-	if err := driver.session.register(msg); err != nil {
+	if err := driver.session.start(); err != nil {
 		return driver.status, err
 	}
 
@@ -200,5 +214,39 @@ func (driver *MesosSchedulerDriver) start() (mesos.Status, error) {
 }
 
 func (driver *MesosSchedulerDriver) Stop() {
+	log.Println("Stop the scheduler driver")
 
+	close(driver.stopped)
+}
+
+func (driver *MesosSchedulerDriver) start() error {
+	log.Println("Starting the scheduler driver...")
+
+	detector, err := detector.NewDetector(driver.master)
+	if err != nil {
+		return err
+	}
+
+	session := newSession(driver, detector)
+	defer session.close()
+
+	for {
+		select {
+		case event := <-session.events:
+			handler, ok := driver.handlers[event.GetType()]
+			if !ok {
+				continue
+			}
+
+			hanlder(event)
+		case err := <-session.errs:
+			if err != nil {
+				session.close()
+
+				session = newSession(driver, detector)
+			}
+		case <-driver.stopped:
+			return
+		}
+	}
 }

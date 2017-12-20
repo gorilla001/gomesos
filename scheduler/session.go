@@ -4,22 +4,22 @@ import (
 	"net/http"
 
 	mesos "github.com/pwzgorilla/mfl/mesosproto"
+	"github.com/pwzgorilla/mfl/detector"
 )
 
 type session struct {
-	closed     chan struct{}
-	registered chan struct{}
-	events     *mesos.Event
-	errs       chan error
-	client     *http.Client
-	driver     *MesosSchedulerDriver
-	streamID   string
-	master     string
-	stream     *stream
+	closed   chan struct{}
+	events   chan *mesos.Event
+	errs     chan error
+	client   *http.Client
+	driver   *MesosSchedulerDriver
+	streamID string
+	master   string
+	stream   *stream
 }
 
-func newSession(driver *MesosSchedulerDriver) *session {
-	return &session{
+func newSession(driver *MesosSchedulerDriver, detector detector.Detector ) *session {
+	s := &session{
 		client: &http.Client{
 			Transport: &http.Transport{
 				Dial: (&net.Dialer{
@@ -31,25 +31,49 @@ func newSession(driver *MesosSchedulerDriver) *session {
 				Timeout:               10 * time.Second,
 			},
 		},
-		events:     make(chan *mesos.Event, 1024),
 		stopped:    make(chan struct{}),
 		registered: make(chan struct{}),
+		errs:       make(chan error),
 		driver:     driver,
 	}
-}
 
-func (s *session) start() error {
-	master, err := s.detector.Detect()
+	master, err := detector.Detect()
 	if err != nil {
-		return err
+		s.errs <- err
+		return s
 	}
 
 	s.master = master
 
-	go s.listen(resp)
+	go s.start()
+
+	return s
+}
+
+func (s *session) start() {
+	if err := s.register(); err != nil {
+		s.errs <- err
+		return
+	}
+
+	go func {
+		s.errs <- s.listen()
+	}()
 }
 
 func (s *session) register() error {
+	call := &sched.Call{
+		Type: sched.Call_SUBSCRIBE.Enum(),
+		Subscribe: &sched.Call_Subscribe{
+			FrameworkInfo: s.driver.frameworkInfo,
+		},
+	}
+
+	msg, err := proto.Marshal(call)
+	if err != nil {
+		return err
+	}
+
 	req, err := makeRequest(msg)
 	if err != nil {
 		return err
@@ -74,73 +98,42 @@ func (s *session) register() error {
 			s.streamID = resp.Header.Get("Mesos-Stream-Id")
 		}
 
-		stream := newStream(resp.Body)
+		stream = newStream(resp.Body)
 
 		event, err := stream.recv()
-		chErr <- err
+		if err != nil {
+			chErr <- err
+		}
 	}()
 
 	select {
 	case err := <-chErr:
-		if err != nil {
-			return err
-		}
+		return err
 	case <-time.After(60 * time.Second):
 		return fmt.Errorf("register to mesos master timeout")
 	}
 
 	s.stream = stream
 
+	s.events <- event
+
 	return nil
 }
 
 func (s *session) listen() error {
 	for {
-		event, err := s.stream.recv()
-		if err != nil {
-			return err
-		}
-
-		hanlder, ok := s.driver.handlers[event.GetType()]
-		if !ok {
-			continue
-		}
-
-		hanlder(event)
-	}
-}
-
-func (s *session) listen(resp *http.Response) {
-	defer resp.Body.Close()
-
-	dec := json.NewDecoder(NewReader(resp.Body))
-
-	for {
 		select {
-		case <-s.registered:
-
-		case <-t.stop:
+		case <-s.closed:
 			return nil
-		case err := <-s.errs:
-			if err != nil {
-				s.close()
-				go s.register()
-				return
-			}
 		default:
-			if err = dec.Decode(&event); err != nil {
-				s.errs <- err
+			event, err := s.stream.recv()
+			if err != nil {
+				return err
 			}
 
-			handler, ok := s.driver.handlers[event.GetType()]
-			if !ok {
-				continue
-			}
-
-			handler(event)
+			s.events <- event
 		}
 	}
-
 }
 
 func (s *session) send(msg *Message) error {
@@ -175,4 +168,9 @@ func (s *session) makeRequest(msg *Message) (*http.Request, error) {
 	req.Header.Set("Accept", "application/json")
 
 	return req, nil
+}
+
+func (s *session) close() {
+	s.stream.close()
+	close(s.closed)
 }
