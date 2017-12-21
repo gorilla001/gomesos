@@ -136,7 +136,7 @@ func (s *session) listen() error {
 	}
 }
 
-func (s *session) send(msg *Message) error {
+func (s *session) send(msg []byte) error {
 	req, err := makeRequest(msg)
 	if err != nil {
 		return err
@@ -159,8 +159,8 @@ func (s *session) send(msg *Message) error {
 
 }
 
-func (s *session) makeRequest(msg *Message) (*http.Request, error) {
-	req, err := http.NewRequest("POST", s.master, bytes.NewReader(msg.Bytes))
+func (s *session) makeRequest(msg []byte) (*http.Request, error) {
+	req, err := http.NewRequest("POST", s.master, bytes.NewReader(msg))
 	if err != nil {
 		return nil, err
 	}

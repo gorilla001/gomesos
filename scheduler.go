@@ -13,45 +13,10 @@ import (
 type SchedulerDriver interface {
 	// Starts the scheduler driver. This needs to be called before any
 	// other driver calls are made.
-	Start() (mesos.Status, error)
+	Start() error
 
-	// Stops the scheduler driver. If the 'failover' flag is set to
-	// false then it is expected that this framework will never
-	// reconnect to Mesos and all of its executors and tasks can be
-	// terminated. Otherwise, all executors and tasks will remain
-	// running (for some framework specific failover timeout) allowing the
-	// scheduler to reconnect (possibly in the same process, or from a
-	// different process, for example, on a different machine).
-	Stop(failover bool) (mesos.Status, error)
-
-	// Aborts the driver so that no more callbacks can be made to the
-	// scheduler. The semantics of abort and stop have deliberately been
-	// separated so that code can detect an aborted driver (i.e., via
-	// the return status of SchedulerDriver::join, see below), and
-	// instantiate and start another driver if desired (from within the
-	// same process). Note that 'Stop()' is not automatically called
-	// inside 'Abort()'.
-	Abort() (mesos.Status, error)
-
-	// Waits for the driver to be stopped or aborted, possibly
-	// _blocking_ the current thread indefinitely. The return status of
-	// this function can be used to determine if the driver was aborted
-	// (see mesos.proto for a description of Status).
-	Join() (mesos.Status, error)
-
-	// Starts and immediately joins (i.e., blocks on) the driver.
-	Run() (mesos.Status, error)
-
-	// Requests resources from Mesos (see mesos.proto for a description
-	// of Request and how, for example, to request resources
-	// from specific slaves). Any resources available are offered to the
-	// framework via Scheduler.ResourceOffers callback, asynchronously.
-	RequestResources(requests []*mesos.Request) (mesos.Status, error)
-
-	// AcceptOffers utilizes the new HTTP API to send a Scheduler Call Message
-	// to the Mesos Master. Valid operation types are LAUNCH, RESERVE, UNRESERVE,
-	// CREATE, DESTROY, and more.
-	AcceptOffers(offerIDs []*mesos.OfferID, operations []*mesos.Offer_Operation, filters *mesos.Filters) (mesos.Status, error)
+	// Stops the scheduler driver.
+	Stop()
 
 	// Launches the given set of tasks. Any resources remaining (i.e.,
 	// not used by the tasks or their executors) will be considered
@@ -61,21 +26,21 @@ type SchedulerDriver interface {
 	// provided. Note that all offers must belong to the same slave.
 	// Invoking this function with an empty collection of tasks declines
 	// offers in their entirety (see Scheduler::declineOffer).
-	LaunchTasks(offerIDs []*mesos.OfferID, tasks []*mesos.TaskInfo, filters *mesos.Filters) (mesos.Status, error)
+	LaunchTasks(offerIDs []*mesos.OfferID, tasks []*mesos.TaskInfo, filters *mesos.Filters) error
 
 	// Kills the specified task. Note that attempting to kill a task is
 	// currently not reliable. If, for example, a scheduler fails over
 	// while it was attempting to kill a task it will need to retry in
 	// the future. Likewise, if unregistered / disconnected, the request
 	// will be dropped (these semantics may be changed in the future).
-	KillTask(taskID *mesos.TaskID) (mesos.Status, error)
+	KillTask(taskID, agentID string) error
 
 	// Declines an offer in its entirety and applies the specified
 	// filters on the resources (see mesos.proto for a description of
 	// Filters). Note that this can be done at any time, it is not
 	// necessary to do this within the Scheduler::resourceOffers
 	// callback.
-	DeclineOffer(offerID *mesos.OfferID, filters *mesos.Filters) (mesos.Status, error)
+	DeclineOffer(offerID *mesos.OfferID, filters *mesos.Filters) error
 
 	// Removes all filters previously set by the framework (via
 	// LaunchTasks()). This enables the framework to receive offers from
