@@ -45,20 +45,23 @@ type SchedulerDriver interface {
 	// Removes all filters previously set by the framework (via
 	// LaunchTasks()). This enables the framework to receive offers from
 	// those filtered slaves.
-	ReviveOffers() (mesos.Status, error)
+	ReviveOffers() error
 
-	// Sends a message from the framework to one of its executors. These
-	// messages are best effort; do not expect a framework message to be
-	// retransmitted in any reliable fashion.
-	SendFrameworkMessage(executorID *mesos.ExecutorID, slaveID *mesos.SlaveID, data string) (mesos.Status, error)
-
-	// Allows the framework to query the status for non-terminal tasks.
+	// Allows the scheduler to query the status for non-terminal tasks.
 	// This causes the master to send back the latest task status for
-	// each task in 'statuses', if possible. Tasks that are no longer
-	// known will result in a TASK_LOST update. If statuses is empty,
-	// then the master will send the latest status for each task
-	// currently known.
-	ReconcileTasks(statuses []*mesos.TaskStatus) (mesos.Status, error)
+	// each task in 'tasks', if possible. Tasks that are no longer known
+	// will result in a TASK_LOST, TASK_UNKNOWN, or TASK_UNREACHABLE update.
+	// If 'tasks' is empty, then the master will send the latest status
+	// for each task currently known.
+	ReconcileTasks() error
+
+	// Acknowledges the receipt of status update. Schedulers are
+	// responsible for explicitly acknowledging the receipt of status
+	// updates that have 'Update.status().uuid()' field set. Such status
+	// updates are retried by the agent until they are acknowledged by
+	// the scheduler.
+
+	Acknowledge(status *mesos.TaskStatus) error
 }
 
 // Scheduler a type with callback attributes to be provided by frameworks
@@ -78,15 +81,8 @@ type Scheduler interface {
 	// with the ip and port of the current master are provided as arguments.
 	Registered(SchedulerDriver, *mesos.FrameworkID, *mesos.MasterInfo)
 
-	// Invoked when the scheduler re-registers with a newly elected Mesos master.
-	// This is only called when the scheduler has previously been registered.
-	// MasterInfo containing the updated information about the elected master
-	// is provided as an argument.
-	Reregistered(SchedulerDriver, *mesos.MasterInfo)
-
-	// Invoked when the scheduler becomes "disconnected" from the master
-	// (e.g., the master fails and another is taking over).
-	Disconnected(SchedulerDriver)
+	// Invoked when the scheduler receive "heartbeat" from the master.
+	HeartBeated()
 
 	// Invoked when resources have been offered to this framework. A
 	// single offer will only contain resources from a single slave.
@@ -120,24 +116,4 @@ type Scheduler interface {
 	// however, that this is currently not true if the slave sending the
 	// status update is lost/fails during that time).
 	StatusUpdate(SchedulerDriver, *mesos.TaskStatus)
-
-	// Invoked when an executor sends a message. These messages are best
-	// effort; do not expect a framework message to be retransmitted in
-	// any reliable fashion.
-	FrameworkMessage(SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, string)
-
-	// Invoked when a slave has been determined unreachable (e.g.,
-	// machine failure, network partition). Most frameworks will need to
-	// reschedule any tasks launched on this slave on a new slave.
-	SlaveLost(SchedulerDriver, *mesos.SlaveID)
-
-	// Invoked when an executor has exited/terminated. Note that any
-	// tasks running will have TASK_LOST status updates automagically
-	// generated.
-	ExecutorLost(SchedulerDriver, *mesos.ExecutorID, *mesos.SlaveID, int)
-
-	// Invoked when there is an unrecoverable error in the scheduler or
-	// scheduler driver. The driver will be aborted BEFORE invoking this
-	// callback.
-	Error(SchedulerDriver, string)
 }

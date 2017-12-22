@@ -116,7 +116,7 @@ func (driver *MesosSchedulerDriver) heartbeatReceived(event *mesos.Event) {
 		return
 	}
 
-	driver.scheduler.HeartBeat(driver, event)
+	driver.scheduler.HeartBeated()
 }
 
 // Starts the scheduler driver.
@@ -294,6 +294,61 @@ func (driver *MesosSchedulerDriver) DeclineOffer(offerId *mesos.OfferID, filters
 			OfferIds: []*mesos.OfferID{offerId},
 			Filters:  filters,
 		},
+	}
+
+	return driver.send(msg)
+}
+
+func (driver *MesosSchedulerDriver) ReviveOffers() error {
+	driver.Lock()
+	defer driver.Unlock()
+
+	if !driver.connected {
+		return ErrDisconnected
+	}
+
+	msg := &mesos.Call{
+		FrameworkId: driver.framework.GetId(),
+		Type:        mesos.Call_REVIVE_Enum(),
+		Revive:      &mesos.Call_Revive{},
+	}
+
+	return driver.send(msg)
+}
+
+func (driver *MesosSchedulerDriver) ReconcileTasks() error {
+	driver.Lock()
+	defer driver.Unlock()
+
+	if !driver.connected {
+		return ErrDisconnected
+	}
+
+	msg := &mesos.Call{
+		FrameworkId: driver.framework.GetId(),
+		Type:        mesos.Call_RECONCILE.Enum(),
+		Reconcile:   &mesos.Call_Reconcile{},
+	}
+
+	return driver.send(msg)
+}
+
+func (driver *MesosSchedulerDriver) Acknowledge(status *mesos.TaskStatus) error {
+	driver.Lock()
+	defer driver.Unlock()
+
+	if !driver.connected {
+		return ErrDisconnected
+	}
+
+	msg := &mesos.Call{
+		FrameworkId: driver.framework.GetId(),
+		Type: mesos.Call_ACKNOWLEDGE.Enum(),
+		Acknowledge: &mesos.Call_Acknowledge{
+			AgentId: status.GetAgentId(),
+			TaskId: status.GetTaskId(),
+			Uuid: status.GetUuid(),
+		}
 	}
 
 	return driver.send(msg)
