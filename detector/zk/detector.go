@@ -16,22 +16,26 @@ import (
 
 type detector struct {
 	hosts string
+	path  string
 }
 
-func NewDetector(hosts string) *detector {
+func NewDetector(hosts, path string) *detector {
 	return &detector{
 		hosts: hosts,
+		path:  path,
 	}
 }
 
 func (d *detector) Detect() (string, error) {
 	client, err := d.client()
 	if err != nil {
+		log.Errorln("1xxxxxxxx", err)
 		return "", err
 	}
 
 	leader, err := client.DetermineLeader()
 	if err != nil {
+		log.Errorln("2xxxxxxxx", err)
 		return "", err
 	}
 
@@ -63,16 +67,16 @@ func (d *detector) client() (*megos.Client, error) {
 		masterInfo = new(mesosproto.MasterInfo)
 	)
 
-	children, _, err := conn.Children(d.ZKPath)
+	children, _, err := conn.Children(d.path)
 	if err != nil {
-		return nil, fmt.Errorf("get children on %s error: %v", d.ZKPath, err)
+		return nil, fmt.Errorf("get children on %s error: %v", d.path, err)
 	}
 	for _, node := range children {
 		if !strings.HasPrefix(node, "json.info") {
 			continue
 		}
 
-		path := d.ZKPath + "/" + node
+		path := d.path + "/" + node
 		data, _, err := conn.Get(path)
 		if err != nil {
 			return nil, fmt.Errorf("get node on %s error: %v", path, err)

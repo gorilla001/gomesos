@@ -1,4 +1,4 @@
-package main
+package scheduler
 
 import (
 	mesos "github.com/mesos/go-proto/mesos/v1"

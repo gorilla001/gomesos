@@ -1,15 +1,20 @@
 package scheduler
 
 import (
+	"bytes"
+	"fmt"
+	"net"
 	"net/http"
+	"time"
 
-	mesos "github.com/pwzgorilla/mfl/mesosproto"
-	"github.com/pwzgorilla/mfl/detector"
+	"github.com/gogo/protobuf/proto"
+	sched "github.com/mesos/go-proto/mesos/v1/scheduler"
+	"github.com/pwzgorilla/libmesos/detector"
 )
 
 type session struct {
 	closed   chan struct{}
-	events   chan *mesos.Event
+	events   chan *sched.Event
 	errs     chan error
 	client   *http.Client
 	driver   *MesosSchedulerDriver
@@ -18,7 +23,7 @@ type session struct {
 	stream   *stream
 }
 
-func newSession(driver *MesosSchedulerDriver, detector detector.Detector ) *session {
+func newSession(driver *MesosSchedulerDriver, detector detector.Detector) *session {
 	s := &session{
 		client: &http.Client{
 			Transport: &http.Transport{
@@ -28,13 +33,12 @@ func newSession(driver *MesosSchedulerDriver, detector detector.Detector ) *sess
 				}).Dial,
 				TLSHandshakeTimeout:   10 * time.Second,
 				ResponseHeaderTimeout: 10 * time.Second,
-				Timeout:               10 * time.Second,
 			},
 		},
-		stopped:    make(chan struct{}),
-		registered: make(chan struct{}),
-		errs:       make(chan error),
-		driver:     driver,
+		events: make(chan *sched.Event),
+		closed: make(chan struct{}),
+		errs:   make(chan error),
+		driver: driver,
 	}
 
 	master, err := detector.Detect()
@@ -56,7 +60,7 @@ func (s *session) start() {
 		return
 	}
 
-	go func {
+	go func() {
 		s.errs <- s.listen()
 	}()
 }
@@ -65,7 +69,7 @@ func (s *session) register() error {
 	call := &sched.Call{
 		Type: sched.Call_SUBSCRIBE.Enum(),
 		Subscribe: &sched.Call_Subscribe{
-			FrameworkInfo: s.driver.frameworkInfo,
+			FrameworkInfo: s.driver.framework,
 		},
 	}
 
@@ -74,23 +78,24 @@ func (s *session) register() error {
 		return err
 	}
 
-	req, err := makeRequest(msg)
+	req, err := s.makeRequest(msg)
 	if err != nil {
 		return err
 	}
 
 	var (
 		stream *stream
-		event  *mesos.Event
-		err    error
+		event  *sched.Event
+		resp   *http.Response
+		errs   error
 	)
 
 	chErr := make(chan error, 1)
 
 	go func() {
-		resp, err := c.client.Do(req)
-		if err != nil {
-			chErr <- err
+		resp, errs = s.client.Do(req)
+		if errs != nil {
+			chErr <- errs
 			return
 		}
 
@@ -100,15 +105,15 @@ func (s *session) register() error {
 
 		stream = newStream(resp.Body)
 
-		event, err := stream.recv()
-		if err != nil {
-			chErr <- err
-		}
+		event, errs = stream.recv()
+		chErr <- errs
 	}()
 
 	select {
 	case err := <-chErr:
-		return err
+		if err != nil {
+			return err
+		}
 	case <-time.After(60 * time.Second):
 		return fmt.Errorf("register to mesos master timeout")
 	}
@@ -137,13 +142,13 @@ func (s *session) listen() error {
 }
 
 func (s *session) send(msg []byte) error {
-	req, err := makeRequest(msg)
+	req, err := s.makeRequest(msg)
 	if err != nil {
 		return err
 	}
 
 	if s.streamID != "" {
-		req.Header.Set("Mesos-Stream-Id", c.streamID)
+		req.Header.Set("Mesos-Stream-Id", s.streamID)
 	}
 
 	resp, err := s.client.Do(req)
@@ -160,7 +165,7 @@ func (s *session) send(msg []byte) error {
 }
 
 func (s *session) makeRequest(msg []byte) (*http.Request, error) {
-	req, err := http.NewRequest("POST", s.master, bytes.NewReader(msg))
+	req, err := http.NewRequest("POST", "http://"+s.master+"/api/v1/scheduler", bytes.NewReader(msg))
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +176,9 @@ func (s *session) makeRequest(msg []byte) (*http.Request, error) {
 }
 
 func (s *session) close() {
-	s.stream.close()
+	if s.stream != nil {
+		s.stream.close()
+	}
+
 	close(s.closed)
 }

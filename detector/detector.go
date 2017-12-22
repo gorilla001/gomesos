@@ -1,7 +1,11 @@
 package detector
 
 import (
+	"fmt"
 	"net/url"
+
+	"github.com/pwzgorilla/libmesos/detector/zk"
+	log "github.com/sirupsen/logrus"
 )
 
 type Detector interface {
@@ -12,11 +16,15 @@ type Detector interface {
 func NewDetector(master string) (Detector, error) {
 	u, err := url.Parse(master)
 	if err != nil {
+		log.Errorf("detector parse error: %v", err)
+
 		return nil, err
 	}
 
 	switch u.Scheme {
 	case "zk":
-		return zk.NewDetector(u.Host), nil
+		return zk.NewDetector(u.Host, u.Path), nil
 	}
+
+	return nil, fmt.Errorf("Unkonw %s", u.Scheme)
 }
