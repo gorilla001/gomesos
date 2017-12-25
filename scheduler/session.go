@@ -37,7 +37,7 @@ func newSession(driver *MesosSchedulerDriver, detector detector.Detector) *sessi
 		},
 		events: make(chan *sched.Event),
 		closed: make(chan struct{}),
-		errs:   make(chan error),
+		errs:   make(chan error, 1),
 		driver: driver,
 	}
 
@@ -67,7 +67,8 @@ func (s *session) start() {
 
 func (s *session) register() error {
 	call := &sched.Call{
-		Type: sched.Call_SUBSCRIBE.Enum(),
+		FrameworkId: s.driver.framework.Id,
+		Type:        sched.Call_SUBSCRIBE.Enum(),
 		Subscribe: &sched.Call_Subscribe{
 			FrameworkInfo: s.driver.framework,
 		},
