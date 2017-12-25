@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	mesos "github.com/mesos/go-proto/mesos/v1"
@@ -172,13 +173,16 @@ func (driver *MesosSchedulerDriver) start() error {
 		case err := <-session.errs:
 			if err != nil {
 				log.Errorln("Scheduler ssession error:", err)
-				return nil
 				// Mark driver as disconnected, so the following operation will be ignored.
 				driver.connected = false
 
 				// close the connection before reconnected.
 				session.close()
 
+				// backoff
+				time.Sleep(2 * time.Second)
+
+				// reconnect
 				session = newSession(driver, driver.detector)
 				driver.session = session
 			}

@@ -29,13 +29,11 @@ func NewDetector(hosts, path string) *detector {
 func (d *detector) Detect() (string, error) {
 	client, err := d.client()
 	if err != nil {
-		log.Errorln("1xxxxxxxx", err)
 		return "", err
 	}
 
 	leader, err := client.DetermineLeader()
 	if err != nil {
-		log.Errorln("2xxxxxxxx", err)
 		return "", err
 	}
 
