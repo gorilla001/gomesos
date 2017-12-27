@@ -42,6 +42,9 @@ func (s *scheduler) OfferRescinded(driver driver.SchedulerDriver, offerID *mesos
 func (s *scheduler) StatusUpdate(driver driver.SchedulerDriver, status *mesos.TaskStatus) {
 }
 
+func (s *scheduler) FrameworkMessage(driver driver.SchedulerDriver, agentId *mesos.AgentID, executorId *mesos.ExecutorID, data []byte) {
+}
+
 var task = &mesos.TaskInfo{
 	Name: proto.String(fmt.Sprintf("%d", time.Now().Nanosecond())),
 	TaskId: &mesos.TaskID{
