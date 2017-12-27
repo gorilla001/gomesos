@@ -123,4 +123,16 @@ type Scheduler interface {
 	// guarantees) to the scheduler. It is up to the executor to retry
 	// if the message is dropped for any reason.
 	FrameworkMessage(SchedulerDriver, *mesos.AgentID, *mesos.ExecutorID, []byte)
+
+	// Received when an agent is removed from the cluster (e.g., failed
+	// health checks) or when an executor is terminated. Note that, this
+	// event coincides with receipt of terminal UPDATE events for any
+	// active tasks belonging to the agent or executor and receipt of
+	// 'Rescind' events for any outstanding offers belonging to the
+	// agent. Note that there is no guaranteed order between the
+	// 'Failure', 'Update' and 'Rescind' events when an agent or executor
+	// is removed.
+	// TODO(vinod): Consider splitting the lost agent and terminated
+	// executor into separate events and ensure it's reliably generated.
+	FailureMessage(SchedulerDriver, *mesos.AgentID, *mesos.ExecutorID, *int32)
 }
