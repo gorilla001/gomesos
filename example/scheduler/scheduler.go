@@ -48,6 +48,9 @@ func (s *scheduler) FrameworkMessage(driver driver.SchedulerDriver, agentId *mes
 func (s *scheduler) FailureMessage(driver driver.SchedulerDriver, agentId *mesos.AgentID, executorId *mesos.ExecutorID, status *int32) {
 }
 
+func (s *scheduler) ErrorMessage(driver driver.SchedulerDriver, message *string) {
+}
+
 var task = &mesos.TaskInfo{
 	Name: proto.String(fmt.Sprintf("%d", time.Now().Nanosecond())),
 	TaskId: &mesos.TaskID{
