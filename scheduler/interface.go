@@ -134,10 +134,10 @@ type Scheduler interface {
 	// is removed.
 	// TODO(vinod): Consider splitting the lost agent and terminated
 	// executor into separate events and ensure it's reliably generated.
-	FailureMessage(SchedulerDriver, *mesos.AgentID, *mesos.ExecutorID, *int32)
+	FailureMessage(SchedulerDriver, *mesos.AgentID, *mesos.ExecutorID, int32)
 
 	// Received when there is an unrecoverable error in the scheduler (e.g.,
 	// scheduler failed over, rate limiting, authorization errors etc.). The
 	// scheduler should abort on receiving this event.
-	ErrorMessage(SchedulerDriver, *string)
+	ErrorMessage(SchedulerDriver, string)
 }

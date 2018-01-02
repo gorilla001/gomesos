@@ -61,10 +61,10 @@ func (driver *MesosSchedulerDriver) init() {
 	driver.handlers[sched.Event_OFFERS] = driver.resourcesOffered
 	driver.handlers[sched.Event_RESCIND] = driver.resourceOfferRescinded
 	driver.handlers[sched.Event_UPDATE] = driver.statusUpdated
-	//driver.handlers[sched.Event_HEARTBEAT] = driver.heartBeat
-	//driver.handlers[sched.Event_ERROR] = driver.frameworkErrorRcvd
-	//driver.handlers[sched.Event_FAILURE] = driver.frameworkFailure
-	//driver.handlers[sched.Event_MESSAGE] = driver.frameworkMessageRcvd
+	driver.handlers[sched.Event_HEARTBEAT] = driver.heartbeatReceived
+	driver.handlers[sched.Event_MESSAGE] = driver.frameworkMessage
+	driver.handlers[sched.Event_FAILURE] = driver.failureMessage
+	driver.handlers[sched.Event_ERROR] = driver.errorMessage
 }
 
 func (driver *MesosSchedulerDriver) frameworkRegistered(event *sched.Event) {
@@ -107,7 +107,7 @@ func (driver *MesosSchedulerDriver) resourceOfferRescinded(event *sched.Event) {
 
 	log.Println("Rescinding offer ", rescind.OfferId.GetValue())
 
-	driver.scheduler.OfferRescinded(driver, rescind.OfferId)
+	driver.scheduler.OfferRescinded(driver, rescind.GetOfferId())
 }
 
 func (driver *MesosSchedulerDriver) statusUpdated(event *sched.Event) {
@@ -116,11 +116,9 @@ func (driver *MesosSchedulerDriver) statusUpdated(event *sched.Event) {
 		return
 	}
 
-	updated := event.GetUpdate()
+	update := event.GetUpdate()
 
-	status := updated.GetStatus()
-
-	driver.scheduler.StatusUpdate(driver, status)
+	driver.scheduler.StatusUpdate(driver, update.GetStatus())
 }
 
 func (driver *MesosSchedulerDriver) heartbeatReceived(event *sched.Event) {
@@ -130,6 +128,39 @@ func (driver *MesosSchedulerDriver) heartbeatReceived(event *sched.Event) {
 	}
 
 	driver.scheduler.HeartBeated()
+}
+
+func (driver *MesosSchedulerDriver) frameworkMessage(event *sched.Event) {
+	if !driver.connected {
+		log.Println("Ignoring framework message, the driver is not connected!")
+		return
+	}
+
+	message := event.GetMessage()
+
+	driver.scheduler.FrameworkMessage(driver, message.GetAgentId(), message.GetExecutorId(), message.GetData())
+}
+
+func (driver *MesosSchedulerDriver) failureMessage(event *sched.Event) {
+	if !driver.connected {
+		log.Println("Ignoring failure message, the driver is not connected!")
+		return
+	}
+
+	failure := event.GetFailure()
+
+	driver.scheduler.FailureMessage(driver, failure.GetAgentId(), failure.GetExecutorId(), failure.GetStatus())
+}
+
+func (driver *MesosSchedulerDriver) errorMessage(event *sched.Event) {
+	if !driver.connected {
+		log.Println("Ignoring failure message, the driver is not connected!")
+		return
+	}
+
+	err := event.GetError()
+
+	driver.scheduler.ErrorMessage(driver, err.GetMessage())
 }
 
 // Starts the scheduler driver.

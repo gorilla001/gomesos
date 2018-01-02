@@ -45,10 +45,10 @@ func (s *scheduler) StatusUpdate(driver driver.SchedulerDriver, status *mesos.Ta
 func (s *scheduler) FrameworkMessage(driver driver.SchedulerDriver, agentId *mesos.AgentID, executorId *mesos.ExecutorID, data []byte) {
 }
 
-func (s *scheduler) FailureMessage(driver driver.SchedulerDriver, agentId *mesos.AgentID, executorId *mesos.ExecutorID, status *int32) {
+func (s *scheduler) FailureMessage(driver driver.SchedulerDriver, agentId *mesos.AgentID, executorId *mesos.ExecutorID, status int32) {
 }
 
-func (s *scheduler) ErrorMessage(driver driver.SchedulerDriver, message *string) {
+func (s *scheduler) ErrorMessage(driver driver.SchedulerDriver, message string) {
 }
 
 var task = &mesos.TaskInfo{
