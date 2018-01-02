@@ -47,6 +47,11 @@ type SchedulerDriver interface {
 	// those filtered slaves.
 	ReviveOffers() error
 
+	// Suppress offers for the specified roles. If `roles` is empty,
+	// the `SUPPRESS` call will suppress offers for all of the roles
+	// the framework is currently subscribed as.
+	SuppressOffers() error
+
 	// Allows the scheduler to query the status for non-terminal tasks.
 	// This causes the master to send back the latest task status for
 	// each task in 'tasks', if possible. Tasks that are no longer known

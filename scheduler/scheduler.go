@@ -325,6 +325,26 @@ func (driver *MesosSchedulerDriver) ReviveOffers() error {
 	return driver.send(msg)
 }
 
+// Suppress offers for the specified roles. If `roles` is empty,
+// the `SUPPRESS` call will suppress offers for all of the roles
+// the framework is currently subscribed as.
+func (driver *MesosSchedulerDriver) SuppressOffers() error {
+	driver.Lock()
+	defer driver.Unlock()
+
+	if !dirver.connected {
+		return ErrDisconnected
+	}
+
+	msg := &sched.Call{
+		FrameworkId: driver.framework.GetId(),
+		Type:        sched.Call_SUPPRESS.Enum(),
+		Suppress:    &sched.Call_Suppress{},
+	}
+
+	return driver.send(msg)
+}
+
 func (driver *MesosSchedulerDriver) ReconcileTasks() error {
 	driver.Lock()
 	defer driver.Unlock()
