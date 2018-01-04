@@ -9,7 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	sched "github.com/mesos/go-proto/mesos/v1/scheduler"
-	"github.com/pwzgorilla/libmesos/detector"
+	"github.com/pwzgorilla/gomesos/detector"
 )
 
 type session struct {

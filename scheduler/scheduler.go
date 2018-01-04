@@ -9,7 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	mesos "github.com/mesos/go-proto/mesos/v1"
 	sched "github.com/mesos/go-proto/mesos/v1/scheduler"
-	"github.com/pwzgorilla/libmesos/detector"
+	"github.com/pwzgorilla/gomesos/detector"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -332,7 +332,7 @@ func (driver *MesosSchedulerDriver) SuppressOffers() error {
 	driver.Lock()
 	defer driver.Unlock()
 
-	if !dirver.connected {
+	if !driver.connected {
 		return ErrDisconnected
 	}
 

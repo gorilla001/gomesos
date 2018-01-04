@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/pwzgorilla/libmesos/detector/zk"
+	"github.com/pwzgorilla/gomesos/detector/zk"
 	log "github.com/sirupsen/logrus"
 )
 

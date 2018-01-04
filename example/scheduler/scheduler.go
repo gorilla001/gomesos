@@ -8,7 +8,7 @@ import (
 	"time"
 
 	mesos "github.com/mesos/go-proto/mesos/v1"
-	driver "github.com/pwzgorilla/libmesos/scheduler"
+	driver "github.com/pwzgorilla/gomesos/scheduler"
 )
 
 type scheduler struct {
