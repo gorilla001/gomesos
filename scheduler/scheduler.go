@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -166,16 +165,6 @@ func (driver *MesosSchedulerDriver) errorMessage(event *sched.Event) {
 // Starts the scheduler driver.
 // Returns immediately if an error occurs within start sequence.
 func (driver *MesosSchedulerDriver) Start() error {
-	return driver.start()
-}
-
-func (driver *MesosSchedulerDriver) Stop() {
-	log.Println("Stop the scheduler driver")
-
-	close(driver.stopped)
-}
-
-func (driver *MesosSchedulerDriver) start() error {
 	select {
 	case <-driver.started:
 		return errors.New("Unable to Start: driver has already been started once.")
@@ -188,6 +177,18 @@ func (driver *MesosSchedulerDriver) start() error {
 		return errors.New("driver has already connected")
 	}
 
+	go driver.start()
+
+	return nil
+}
+
+func (driver *MesosSchedulerDriver) Stop() {
+	log.Println("Stop the scheduler driver")
+
+	close(driver.stopped)
+}
+
+func (driver *MesosSchedulerDriver) start() error {
 	session := newSession(driver, driver.detector)
 	driver.session = session
 	defer session.close()
@@ -302,8 +303,6 @@ func (driver *MesosSchedulerDriver) DeclineOffer(offerId *mesos.OfferID, filters
 			Filters:  filters,
 		},
 	}
-
-	fmt.Println(msg)
 
 	return driver.send(msg)
 }
